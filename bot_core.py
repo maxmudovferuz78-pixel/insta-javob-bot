@@ -63,3 +63,33 @@ def normalize(text: str) -> str:
     text = re.sub(r"[‘’ʻʼ`]", "'", text)  # o', g' belgilarini birxillashtirish
     return re.sub(r"[^\w\s']", " ", text)
 
+
+def ask_gemini(comment: str) -> dict:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client()  # kalitni GEMINI_API_KEY dan oladi
+    resp = client.models.generate_content(
+        model=MODEL,
+        contents=comment,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
+            temperature=0.2,
+        ),
+    )
+    return json.loads(resp.text)
+
+
+def decide(comment: str) -> Decision:
+    text = normalize(comment)
+
+    # 1) Aniq haqorat: AI'ga yubormasdan jim turamiz
+    if any(bad in text for bad in BLOCKLIST):
+        return Decision("ignore", reason="blocklist")
+
+    # 2) Kalit so'z: tayyor shablon, AI kerak emas
+    for keyword, reply in KEYWORDS.items():
+        if re.search(rf"\b{re.escape(keyword)}\b", text):
+            return Decision("reply", reply, f"kalit so'z: {keyword}")
+
