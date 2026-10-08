@@ -64,21 +64,29 @@ def normalize(text: str) -> str:
     return re.sub(r"[^\w\s']", " ", text)
 
 
+
+
 def ask_gemini(comment: str) -> dict:
     from google import genai
     from google.genai import types
 
-    client = genai.Client()  # kalitni GEMINI_API_KEY dan oladi
-    resp = client.models.generate_content(
-        model=MODEL,
-        contents=comment,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            temperature=0.2,
-        ),
+    client = genai.Client()
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        temperature=0.2,
     )
-    return json.loads(resp.text)
+    last_error = None
+    for model in (MODEL, MODEL, FALLBACK_MODEL):
+        try:
+            resp = client.models.generate_content(model=model, contents=comment, config=config)
+            return json.loads(resp.text)
+        except Exception as exc:
+            last_error = exc
+            if "503" not in str(exc) and "429" not in str(exc):
+                raise
+            time.sleep(2)
+    raise last_error
 
 
 def decide(comment: str) -> Decision:
