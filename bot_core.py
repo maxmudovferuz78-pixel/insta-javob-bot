@@ -85,7 +85,8 @@ def ask_gemini(comment: str) -> dict:
             return json.loads(resp.text)
         except Exception as exc:
             last_error = exc
-            if "503" not in str(exc) and "429" not in str(exc):
+            # Kalit yoki model nomi xatosi bo'lsa, qayta urinishdan foyda yo'q
+            if any(code in str(exc) for code in ("400", "401", "403", "404")):
                 raise
             time.sleep(2)
     raise last_error
