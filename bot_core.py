@@ -11,6 +11,7 @@ Ishga tushirish:
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
