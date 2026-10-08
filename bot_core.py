@@ -31,7 +31,7 @@ BUSINESS_INFO = """
 # Aniq haqorat so'zlarini o'zing shu yerga qo'sh (kichik harflarda, lotin).
 BLOCKLIST = []
 
-MODEL = os.getenv("gemini-3.6-flash", "gemini-2.5-flash")  # eskirgan bo'lsa, yangisini yoz
+MODEL = os.getenv("gemini-3.8-flash", "gemini-3.8-flash")  # eskirgan bo'lsa, yangisini yoz
 MIN_CONFIDENCE = 0.7
 
 SYSTEM_PROMPT = f"""Sen Instagram'dagi kommentlarni saralaydigan yordamchisan.
