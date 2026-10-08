@@ -64,6 +64,7 @@ def normalize(text: str) -> str:
     return re.sub(r"[^\w\s']", " ", text)
 
 
+FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash-lite")
 
 
 def ask_gemini(comment: str) -> dict:
