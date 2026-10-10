@@ -73,19 +73,16 @@ def ask_gemini(comment: str) -> dict:
     from google.genai import types
 
     client = genai.Client()
-    config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT,
-        response_mime_type="application/json",
-        temperature=0.2,
-    )
+    prompt = f'{SYSTEM_PROMPT}\n\nKOMMENT MATNI:\n"""{comment}"""'
+    config = types.GenerateContentConfig(temperature=0.2)
     last_error = None
     for model in (MODEL, MODEL, FALLBACK_MODEL):
         try:
-            resp = client.models.generate_content(model=model, contents=comment, config=config)
-            return json.loads(resp.text)
+            resp = client.models.generate_content(model=model, contents=prompt, config=config)
+            text = re.sub(r"```(?:json)?", "", resp.text).strip()
+            return json.loads(text)
         except Exception as exc:
             last_error = exc
-            # Kalit yoki model nomi xatosi bo'lsa, qayta urinishdan foyda yo'q
             if any(code in str(exc) for code in ("400", "401", "403", "404")):
                 raise
             time.sleep(2)
