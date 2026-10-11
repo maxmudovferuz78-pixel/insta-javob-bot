@@ -82,3 +82,34 @@ def send_private_reply(comment_id: str, text: str) -> dict:
     return resp.json()
 
 
+def handle_comment(comment: dict) -> Decision | None:
+    """Bitta kommentni to'liq qayta ishlaydi. Takroriy yoki o'zimizning komment bo'lsa None qaytaradi."""
+    if comment.get("from_id") and comment["from_id"] == IG_USER_ID:
+        return None  # o'z kommentimizga javob berib, cheksiz aylanishga tushmaymiz
+
+    con = _db()
+    try:
+        # Meta ba'zan bir xil webhook'ni ikki marta yuboradi: ikkinchisini o'tkazib yuboramiz
+        cur = con.execute(
+            "INSERT OR IGNORE INTO comments (comment_id, text, action, created_at) VALUES (?, ?, 'pending', ?)",
+            (comment["id"], comment["text"], time.time()),
+        )
+        con.commit()
+        if cur.rowcount == 0:
+            return None
+
+        decision = decide(comment["text"])
+        if decision.action == "reply":
+            try:
+                send_private_reply(comment["id"], decision.reply)
+            except Exception as exc:
+                decision = Decision("review", reason=f"yuborib bo'lmadi: {exc}")
+
+        con.execute(
+            "UPDATE comments SET action = ?, reason = ?, reply = ? WHERE comment_id = ?",
+            (decision.action, decision.reason, decision.reply, comment["id"]),
+        )
+        con.commit()
+        return decision
+    finally:
+        con.close()
