@@ -34,3 +34,26 @@ def verify_signature(raw_body: bytes, header: str | None, secret: str) -> bool:
     return hmac.compare_digest(expected, header[len("sha256="):])
 
 
+def extract_comments(payload: dict) -> list[dict]:
+    """Webhook ichidan kommentlarni ajratib oladi."""
+    found = []
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            if change.get("field") != "comments":
+                continue
+            value = change.get("value", {})
+            comment_id, text = value.get("id"), value.get("text")
+            if not comment_id or not text:
+                continue
+            found.append(
+                {
+                    "id": comment_id,
+                    "text": text,
+                    "from_id": (value.get("from") or {}).get("id"),
+                    "username": (value.get("from") or {}).get("username"),
+                    "media_id": (value.get("media") or {}).get("id"),
+                }
+            )
+    return found
+
+
