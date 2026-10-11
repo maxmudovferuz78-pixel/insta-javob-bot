@@ -57,3 +57,28 @@ def extract_comments(payload: dict) -> list[dict]:
     return found
 
 
+def _db() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS comments ("
+        "comment_id TEXT PRIMARY KEY, text TEXT, action TEXT, reason TEXT, "
+        "reply TEXT, created_at REAL)"
+    )
+    return con
+
+
+def send_private_reply(comment_id: str, text: str) -> dict:
+    """Kommentga DM orqali javob yuboradi (har bir komment uchun bitta, 7 kun ichida)."""
+    if DRY_RUN:
+        print(f"[DRY_RUN] komment {comment_id} ga DM: {text}")
+        return {"dry_run": True}
+    resp = requests.post(
+        f"{GRAPH_HOST}/{API_VERSION}/{IG_USER_ID}/messages",
+        headers={"Authorization": f"Bearer {IG_TOKEN}"},
+        json={"recipient": {"comment_id": comment_id}, "message": {"text": text}},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
