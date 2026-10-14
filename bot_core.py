@@ -87,3 +87,41 @@ def decide(comment: str, account_id: str = "default") -> Decision:
     if any(bad and bad in text for bad in cfg["blocklist"]):
         return Decision("ignore", reason="blocklist")
 
+    # 2) Kalit so'z: tayyor shablon, AI kerak emas
+    for keyword, reply in cfg["keywords"].items():
+        if re.search(rf"\b{re.escape(keyword)}\b", text):
+            return Decision("reply", reply, f"kalit so'z: {keyword}")
+
+    # 3) AI
+    if not (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
+        return Decision("review", reason="AI ulanmagan (kalit yo'q)")
+    try:
+        data = ask_gemini(comment, cfg["business_info"])
+    except Exception as exc:  # tarmoq, kvota, noto'g'ri JSON...
+        return Decision("review", reason=f"AI xatosi: {exc}")
+
+    category = data.get("category")
+    confidence = float(data.get("confidence", 0))
+
+    if category in ("abusive", "spam"):
+        if confidence >= MIN_CONFIDENCE:
+            return Decision("ignore", reason=f"AI: {category}")
+        return Decision("review", reason=f"AI gumon qildi: {category}")
+    if category == "other":
+        return Decision("ignore", reason="javob kerak emas")
+    if category == "question" and confidence >= MIN_CONFIDENCE and data.get("reply"):
+        return Decision("reply", data["reply"], "AI javobi")
+
+    return Decision("review", reason="AI ishonchi past yoki ma'lumot yo'q")
+
+
+if __name__ == "__main__":
+    print("Komment yozing (to'xtatish uchun bo'sh qoldiring):")
+    while True:
+        comment = input("> ").strip()
+        if not comment:
+            break
+        d = decide(comment)
+        print(f"  [{d.action}] {d.reason}")
+        if d.reply:
+            print(f"  Javob: {d.reply}")
