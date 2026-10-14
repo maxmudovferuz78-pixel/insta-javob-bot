@@ -56,4 +56,34 @@ def normalize(text: str) -> str:
     text = re.sub(r"[‘’ʻʼ`]", "'", text)  # o', g' belgilarini birxillashtirish
     return re.sub(r"[^\w\s']", " ", text)
 
-            print(f"  Javob: {d.reply}")
+
+def ask_gemini(comment: str, business_info: str) -> dict:
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client()  # kalitni GEMINI_API_KEY dan oladi
+    prompt = build_prompt(business_info, comment)
+    config = types.GenerateContentConfig(temperature=0.2)
+    last_error = None
+    for model in (MODEL, MODEL, FALLBACK_MODEL):
+        try:
+            resp = client.models.generate_content(model=model, contents=prompt, config=config)
+            text = re.sub(r"```(?:json)?", "", resp.text).strip()
+            return json.loads(text)
+        except Exception as exc:
+            last_error = exc
+            # Kalit yoki model nomi xatosi bo'lsa, qayta urinishdan foyda yo'q
+            if any(code in str(exc) for code in ("400", "401", "403", "404")):
+                raise
+            time.sleep(2)
+    raise last_error
+
+
+def decide(comment: str, account_id: str = "default") -> Decision:
+    cfg = get_config(account_id)
+    text = normalize(comment)
+
+    # 1) Aniq haqorat: AI'ga yubormasdan jim turamiz
+    if any(bad and bad in text for bad in cfg["blocklist"]):
+        return Decision("ignore", reason="blocklist")
+
