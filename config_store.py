@@ -80,3 +80,10 @@ def parse_keywords(text: str) -> dict:
             result[key] = reply
     return result
 
+
+def format_keywords(keywords: dict) -> str:
+    return "\n".join(f"{k} | {v}" for k, v in keywords.items())
+
+
+def parse_lines(text: str) -> list[str]:
+    return [line.strip().lower() for line in text.splitlines() if line.strip()]
