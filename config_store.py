@@ -52,3 +52,31 @@ def get_config(account_id: str = "default") -> dict:
     return cfg
 
 
+def save_config(cfg: dict, account_id: str = "default") -> None:
+    con = _con()
+    try:
+        for key in DEFAULTS:
+            if key in cfg:
+                con.execute(
+                    "INSERT OR REPLACE INTO settings (account_id, key, value) VALUES (?, ?, ?)",
+                    (account_id, key, json.dumps(cfg[key], ensure_ascii=False)),
+                )
+        con.commit()
+    finally:
+        con.close()
+
+
+# ---- Forma matnini ma'lumotga aylantirish va aksincha ----
+
+def parse_keywords(text: str) -> dict:
+    """Har qatorda: kalit so'z | javob matni"""
+    result = {}
+    for line in text.splitlines():
+        if "|" not in line:
+            continue
+        key, reply = line.split("|", 1)
+        key, reply = key.strip().lower(), reply.strip()
+        if key and reply:
+            result[key] = reply
+    return result
+
