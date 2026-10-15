@@ -27,3 +27,28 @@ DEFAULTS = {
 }
 
 
+def _con() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS settings ("
+        "account_id TEXT, key TEXT, value TEXT, PRIMARY KEY (account_id, key))"
+    )
+    return con
+
+
+def get_config(account_id: str = "default") -> dict:
+    """Saqlangan sozlamalar; yo'q bo'lganlari uchun standart qiymatlar."""
+    cfg = json.loads(json.dumps(DEFAULTS))  # nusxa
+    con = _con()
+    try:
+        rows = con.execute(
+            "SELECT key, value FROM settings WHERE account_id = ?", (account_id,)
+        ).fetchall()
+    finally:
+        con.close()
+    for key, value in rows:
+        if key in cfg:
+            cfg[key] = json.loads(value)
+    return cfg
+
+
