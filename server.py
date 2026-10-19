@@ -122,3 +122,16 @@ async def save_admin(request: Request):
             "blocklist": config_store.parse_lines(field("blocklist")),
         }
     )
+    return RedirectResponse("/admin", status_code=303)
+
+
+# ---------------- Meta'siz sinash ----------------
+
+if os.getenv("DEBUG_SIMULATE") == "1":
+
+    @app.post("/simulate")
+    def simulate(body: dict):
+        """{"text": "Narx qancha?"} yuboring."""
+        comment = {"id": f"sim-{time.time()}", "text": body["text"], "from_id": "sim-user"}
+        decision = ig.handle_comment(comment)
+        return dataclasses.asdict(decision) if decision else {"skipped": True}
