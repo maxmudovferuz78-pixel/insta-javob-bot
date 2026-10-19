@@ -61,3 +61,29 @@ def require_admin(credentials: HTTPBasicCredentials = Depends(security)):
     if not secrets.compare_digest(credentials.password.encode(), password.encode()):
         raise HTTPException(status_code=401, headers={"WWW-Authenticate": "Basic"})
 
+
+def _esc(value) -> str:
+    return html.escape(str(value or ""))
+
+
+ACTION_LABELS = {"reply": "javob berildi", "ignore": "jim turildi", "review": "ko'rib chiqing", "pending": "jarayonda"}
+
+
+@app.get("/admin", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+def admin_page():
+    cfg = config_store.get_config()
+    rows = "".join(
+        f"<tr class='{_esc(c['action'])}'><td>{_esc(c['text'])}</td>"
+        f"<td>{_esc(ACTION_LABELS.get(c['action'], c['action']))}</td>"
+        f"<td>{_esc(c['reason'])}</td><td>{_esc(c['reply'])}</td></tr>"
+        for c in ig.recent_comments()
+    ) or "<tr><td colspan='4'>Hali komment yo'q</td></tr>"
+    return f"""<!doctype html><html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot sozlamalari</title>
+<style>
+body{{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#222}}
+textarea{{width:100%;font:inherit;padding:.5rem;box-sizing:border-box}}
+button{{padding:.6rem 1.4rem;font-size:1rem;cursor:pointer}}
+table{{width:100%;border-collapse:collapse;font-size:.9rem}}
+td,th{{border:1px solid #ddd;padding:.4rem;text-align:left;vertical-align:top}}
