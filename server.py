@@ -87,3 +87,38 @@ textarea{{width:100%;font:inherit;padding:.5rem;box-sizing:border-box}}
 button{{padding:.6rem 1.4rem;font-size:1rem;cursor:pointer}}
 table{{width:100%;border-collapse:collapse;font-size:.9rem}}
 td,th{{border:1px solid #ddd;padding:.4rem;text-align:left;vertical-align:top}}
+tr.review{{background:#fff4d6}} tr.ignore{{color:#777}}
+small{{color:#666}}
+</style></head><body>
+<h1>Bot sozlamalari</h1>
+<form method="post" action="/admin">
+<h3>Kalit so'zlar</h3>
+<small>Har qatorda bittadan: <b>kalit so'z | javob matni</b>. Kommentda shu so'z bo'lsa, shu javob DM bo'lib boradi.</small>
+<textarea name="keywords" rows="7">{_esc(config_store.format_keywords(cfg['keywords']))}</textarea>
+<h3>Biznes ma'lumoti</h3>
+<small>AI faqat shu ma'lumotga tayanib savollarga javob beradi: narx, manzil, ish vaqti, to'lov va hokazo.</small>
+<textarea name="business_info" rows="8">{_esc(cfg['business_info'])}</textarea>
+<h3>Taqiqlangan so'zlar</h3>
+<small>Har qatorda bittadan. Kommentda shu so'z bo'lsa, bot javob bermaydi.</small>
+<textarea name="blocklist" rows="4">{_esc(chr(10).join(cfg['blocklist']))}</textarea>
+<p><button type="submit">Saqlash</button></p>
+</form>
+<h2>Oxirgi kommentlar</h2>
+<table><tr><th>Komment</th><th>Qaror</th><th>Sabab</th><th>Yuborilgan javob</th></tr>{rows}</table>
+</body></html>"""
+
+
+@app.post("/admin", dependencies=[Depends(require_admin)])
+async def save_admin(request: Request):
+    # Boshqa saytdan yuborilgan so'rovlarni rad etamiz (CSRF'dan himoya)
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise HTTPException(status_code=403)
+    form = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+    field = lambda name: form.get(name, [""])[0]  # noqa: E731
+    config_store.save_config(
+        {
+            "keywords": config_store.parse_keywords(field("keywords")),
+            "business_info": field("business_info").strip(),
+            "blocklist": config_store.parse_lines(field("blocklist")),
+        }
+    )
