@@ -57,3 +57,60 @@ def extract_comments(payload: dict) -> list[dict]:
     return found
 
 
+def _db() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS comments ("
+        "comment_id TEXT PRIMARY KEY, text TEXT, action TEXT, reason TEXT, "
+        "reply TEXT, created_at REAL)"
+    )
+    return con
+
+
+def send_private_reply(comment_id: str, text: str) -> dict:
+    """Kommentga DM orqali javob yuboradi (har bir komment uchun bitta, 7 kun ichida)."""
+    if DRY_RUN:
+        print(f"[DRY_RUN] komment {comment_id} ga DM: {text}")
+        return {"dry_run": True}
+    resp = requests.post(
+        f"{GRAPH_HOST}/{API_VERSION}/{IG_USER_ID}/messages",
+        headers={"Authorization": f"Bearer {IG_TOKEN}"},
+        json={"recipient": {"comment_id": comment_id}, "message": {"text": text}},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def handle_comment(comment: dict) -> Decision | None:
+    """Bitta kommentni to'liq qayta ishlaydi. Takroriy yoki o'zimizning komment bo'lsa None qaytaradi."""
+    if comment.get("from_id") and comment["from_id"] == IG_USER_ID:
+        return None  # o'z kommentimizga javob berib, cheksiz aylanishga tushmaymiz
+
+    con = _db()
+    try:
+        # Meta ba'zan bir xil webhook'ni ikki marta yuboradi: ikkinchisini o'tkazib yuboramiz
+        cur = con.execute(
+            "INSERT OR IGNORE INTO comments (comment_id, text, action, created_at) VALUES (?, ?, 'pending', ?)",
+            (comment["id"], comment["text"], time.time()),
+        )
+        con.commit()
+        if cur.rowcount == 0:
+            return None
+
+        decision = decide(comment["text"])
+        if decision.action == "reply":
+            try:
+                send_private_reply(comment["id"], decision.reply)
+            except Exception as exc:
+                decision = Decision("review", reason=f"yuborib bo'lmadi: {exc}")
+
+        con.execute(
+            "UPDATE comments SET action = ?, reason = ?, reply = ? WHERE comment_id = ?",
+            (decision.action, decision.reason, decision.reply, comment["id"]),
+        )
+        con.commit()
+        return decision
+    finally:
+        con.close()
+
