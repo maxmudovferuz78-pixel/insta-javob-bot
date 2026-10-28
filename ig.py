@@ -26,3 +26,34 @@ DB_PATH = os.getenv("DB_PATH", "bot.db")
 DRY_RUN = os.getenv("DRY_RUN", "1") == "1"
 
 
+def verify_signature(raw_body: bytes, header: str | None, secret: str) -> bool:
+    """Meta har so'rovga X-Hub-Signature-256 imzosini qo'shadi. Soxta so'rovlarni shu bilan to'xtatamiz."""
+    if not secret or not header or not header.startswith("sha256="):
+        return False
+    expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header[len("sha256="):])
+
+
+def extract_comments(payload: dict) -> list[dict]:
+    """Webhook ichidan kommentlarni ajratib oladi."""
+    found = []
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            if change.get("field") != "comments":
+                continue
+            value = change.get("value", {})
+            comment_id, text = value.get("id"), value.get("text")
+            if not comment_id or not text:
+                continue
+            found.append(
+                {
+                    "id": comment_id,
+                    "text": text,
+                    "from_id": (value.get("from") or {}).get("id"),
+                    "username": (value.get("from") or {}).get("username"),
+                    "media_id": (value.get("media") or {}).get("id"),
+                }
+            )
+    return found
+
+
