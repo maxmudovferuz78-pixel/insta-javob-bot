@@ -114,3 +114,15 @@ def handle_comment(comment: dict) -> Decision | None:
     finally:
         con.close()
 
+
+def recent_comments(limit: int = 50) -> list[dict]:
+    """Admin sahifasi uchun: oxirgi kommentlar va botning qarorlari."""
+    con = _db()
+    try:
+        rows = con.execute(
+            "SELECT text, action, reason, reply FROM comments ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    finally:
+        con.close()
+    return [{"text": t, "action": a, "reason": r, "reply": p} for t, a, r, p in rows]
