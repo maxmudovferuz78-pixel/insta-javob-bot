@@ -90,3 +90,28 @@ def render(text: str, comment_id: str) -> str:
 
     return TOKEN_RE.sub(replace, text)
 
+
+def mark_paid(order_id: str) -> bool:
+    """To'lov tasdiqlanganda chaqiriladi (keyingi qadamda callback'lardan)."""
+    con = _db()
+    try:
+        cur = con.execute(
+            "UPDATE orders SET status = 'paid', paid_at = ? WHERE order_id = ? AND status = 'pending'",
+            (time.time(), order_id),
+        )
+        con.commit()
+        return cur.rowcount == 1
+    finally:
+        con.close()
+
+
+def recent_orders(limit: int = 50) -> list[dict]:
+    con = _db()
+    try:
+        rows = con.execute(
+            "SELECT order_id, provider, amount_som, status FROM orders ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    finally:
+        con.close()
+    return [{"order_id": o, "provider": p, "amount": a, "status": s} for o, p, a, s in rows]
