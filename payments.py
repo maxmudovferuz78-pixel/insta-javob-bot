@@ -67,3 +67,26 @@ def payme_link(order_id: str, amount_som: int) -> str:
     raw = f"m={PAYME_MERCHANT_ID};ac.{PAYME_ACCOUNT_FIELD}={order_id};a={amount_som * 100}"  # summa tiyinda
     return f"{PAYME_CHECKOUT_URL}/{base64.b64encode(raw.encode()).decode()}"
 
+
+def click_link(order_id: str, amount_som: int) -> str:
+    if not (CLICK_SERVICE_ID and CLICK_MERCHANT_ID):
+        raise PaymentNotConfigured("CLICK_SERVICE_ID yoki CLICK_MERCHANT_ID kiritilmagan")
+    return (
+        "https://my.click.uz/services/pay"
+        f"?service_id={CLICK_SERVICE_ID}&merchant_id={CLICK_MERCHANT_ID}"
+        f"&amount={amount_som}&transaction_param={order_id}"
+    )
+
+
+def render(text: str, comment_id: str) -> str:
+    """Matndagi {payme:SUMMA} va {click:SUMMA} belgilarini haqiqiy havolaga almashtiradi."""
+
+    def replace(match: re.Match) -> str:
+        provider, amount = match.group(1), int(match.group(2))
+        make_link = payme_link if provider == "payme" else click_link
+        make_link("check", amount)  # sozlanmagan bo'lsa, buyurtma yaratishdan oldin xato beradi
+        order_id = create_order(comment_id, provider, amount)
+        return make_link(order_id, amount)
+
+    return TOKEN_RE.sub(replace, text)
+
