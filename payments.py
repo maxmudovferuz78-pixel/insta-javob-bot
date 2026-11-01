@@ -29,3 +29,19 @@ PAYME_CHECKOUT_URL = os.getenv("PAYME_CHECKOUT_URL", "https://checkout.paycom.uz
 CLICK_SERVICE_ID = os.getenv("CLICK_SERVICE_ID", "")
 CLICK_MERCHANT_ID = os.getenv("CLICK_MERCHANT_ID", "")
 
+TOKEN_RE = re.compile(r"\{(payme|click):(\d+)\}")
+
+
+class PaymentNotConfigured(Exception):
+    pass
+
+
+def _db() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS orders ("
+        "order_id TEXT PRIMARY KEY, comment_id TEXT, provider TEXT, "
+        "amount_som INTEGER, status TEXT, created_at REAL, paid_at REAL)"
+    )
+    return con
+
