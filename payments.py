@@ -45,3 +45,25 @@ def _db() -> sqlite3.Connection:
     )
     return con
 
+
+def create_order(comment_id: str, provider: str, amount_som: int) -> str:
+    order_id = secrets.token_hex(6)  # tasodifiy, taxmin qilib bo'lmaydi
+    con = _db()
+    try:
+        con.execute(
+            "INSERT INTO orders (order_id, comment_id, provider, amount_som, status, created_at) "
+            "VALUES (?, ?, ?, ?, 'pending', ?)",
+            (order_id, comment_id, provider, amount_som, time.time()),
+        )
+        con.commit()
+    finally:
+        con.close()
+    return order_id
+
+
+def payme_link(order_id: str, amount_som: int) -> str:
+    if not PAYME_MERCHANT_ID:
+        raise PaymentNotConfigured("PAYME_MERCHANT_ID kiritilmagan")
+    raw = f"m={PAYME_MERCHANT_ID};ac.{PAYME_ACCOUNT_FIELD}={order_id};a={amount_som * 100}"  # summa tiyinda
+    return f"{PAYME_CHECKOUT_URL}/{base64.b64encode(raw.encode()).decode()}"
+
